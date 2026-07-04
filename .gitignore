@@ -1,0 +1,13 @@
+# Arquivos temporários do sistema
+.DS_Store
+Thumbs.db
+
+# Backups de configuração locais
+*.backup.yml
+*.bak
+
+# Pastas de dados de container locais (se criadas acidentalmente no workspace)
+data/
+config/
+logs/
+.env

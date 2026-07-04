@@ -1,0 +1,55 @@
+version: "3.9"
+
+# Template Docker Compose DevOps para o Postal + MariaDB
+# Este arquivo serve para versionar toda a infraestrutura no Git.
+#
+# Para rodar em produção, crie um arquivo '.env' no mesmo diretório
+# com a variável: DATABASE_ROOT_PASSWORD=sua_senha_segura
+
+services:
+  database:
+    image: mariadb:10
+    container_name: postal-mariadb
+    restart: always
+    environment:
+      MARIADB_DATABASE: postal
+      MARIADB_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+
+  web:
+    image: ghcr.io/postalserver/postal:3.3.7
+    container_name: postal-web
+    command: postal web-server
+    network_mode: host
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+    depends_on:
+      - database
+
+  smtp:
+    image: ghcr.io/postalserver/postal:3.3.7
+    container_name: postal-smtp
+    command: postal smtp-server
+    network_mode: host
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+    depends_on:
+      - database
+
+  worker:
+    image: ghcr.io/postalserver/postal:3.3.7
+    container_name: postal-worker
+    command: postal worker
+    network_mode: host
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+    depends_on:
+      - database
