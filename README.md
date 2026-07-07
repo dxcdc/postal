@@ -8,6 +8,10 @@ O servidor de e-mails foi implantado com sucesso utilizando o **Postal v3** roda
 
 ## Estrutura do Repositório
 
+*   [docs/migration_guide.md](file:///home/vier/Documentos/Code/CDC/Email/docs/migration_guide.md): Guia de Planejamento de Migração, arquitetura de rede, comandos de mapeamento e plano de contingência.
+*   [docs/ajuda_infra.md](file:///home/vier/Documentos/Code/CDC/Email/docs/ajuda_infra.md): Desenho da infraestrutura física de rede e comandos básicos do Postal.
+*   [docs/postmortem.md](file:///home/vier/Documentos/Code/CDC/Email/docs/postmortem.md): Histórico de incidentes depurados durante o setup e resoluções aplicadas.
+*   [docs/troubleshooting.md](file:///home/vier/Documentos/Code/CDC/Email/docs/troubleshooting.md): Manual de correção de falhas comuns de SMTP, timeout e firewall.
 *   `install_postal.sh`: Script utilizado para instalar as dependências base e baixar o instalador oficial do Postal na VPS.
 *   `default.conf`: Arquivo de configuração do Nginx Proxy que faz a ponte entre o Easypanel (Traefik) e a porta local `5000` do Postal na VPS.
 *   `docker-compose.yml`: Template DevOps definitivo para subir o banco MariaDB e a aplicação Postal de forma unificada no Git (ideal para automações futuras).
