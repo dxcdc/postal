@@ -45,17 +45,17 @@ O banco de dados roda em um container standalone:
 Como o Easypanel controla as portas públicas `80` e `443` da VPS, configuramos um aplicativo do tipo "App" com o nome **`postal-proxy`** dentro do projeto **`cdc-ezpoint`** no painel:
 *   **Imagem Docker:** `nginx:alpine`
 *   **Porta do Proxy:** `80`
-*   **Domínio associado:** `core.cdc.org.br` (com SSL Let's Encrypt automático via Easypanel)
+*   **Domínio associado:** `postal.cdc.org.br` (com SSL Let's Encrypt automático via Easypanel)
 *   **Armazenamento (Volume):** 
     Criamos um volume chamado `config` apontando para `/etc/nginx/conf.d` dentro do container.
 *   **Configuração do Proxy (default.conf):**
-    No terminal da VPS, escrevemos o arquivo `/etc/easypanel/projects/cdc-ezpoint/postal-proxy/volumes/config/default.conf` que aponta para o gateway da rede interna do Easypanel (`10.11.0.1:5000`):
+    No terminal da VPS, escrevemos o arquivo `/etc/easypanel/projects/cdc-ezpoint/postal-proxy/volumes/config/default.conf` que aponta para o IP público da VPS na porta `5000` (evitando falhas de rede flutuante/Swarm):
     ```nginx
     server {
         listen 80;
-        server_name core.cdc.org.br;
+        server_name postal.cdc.org.br;
         location / {
-            proxy_pass http://10.11.0.1:5000;
+            proxy_pass http://76.13.227.135:5000;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
