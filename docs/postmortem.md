@@ -35,6 +35,17 @@ Durante a instalação inicial do servidor de e-mails **Postal v3** em uma VPS U
     1.  Adicionamos a diretiva `web_server.default_bind_address: 0.0.0.0` no arquivo `/opt/postal/config/postal.yml` para fazer o Postal escutar em todas as interfaces de rede da VPS.
     2.  Atualizamos o arquivo `default.conf` do Nginx Proxy para apontar para o gateway correto da rede do Easypanel: `http://10.11.0.1:5000`.
 
+### Incidente 4: Conectividade Docker Swarm e Gateway Inativo (Connection Refused)
+*   **Sintoma:** Após configurar o domínio definitivo `postal.cdc.org.br`, o Nginx retornava erro `502 Bad Gateway` e o Easypanel exibia a tela `Service is not reachable`. O container do Nginx entrava em loop de reinicialização sendo finalizado pelo *health check* do Easypanel.
+*   **Causa Raiz:**
+    1.  O Easypanel utiliza Docker Swarm. Na rede Swarm (*overlay*), o IP do gateway (`10.11.0.1`) é dinâmico ou inexistente no nível da interface do container, gerando um erro de `Connection Refused` quando o Nginx tentava realizar o proxy pass.
+    2.  O *health check* do Easypanel identificava o erro `502` do Nginx como uma falha de integridade do app e matava o container em loop.
+    3.  Durante a edição manual do domínio no nano, o caractere de escape barra invertida (`\`) foi reintroduzido acidentalmente no `proxy_pass`, causando falha de sintaxe.
+*   **Solução:**
+    1.  Corrigimos a sintaxe do Nginx removendo a barra invertida (`\;` para `;`).
+    2.  Liberamos a porta `5000` no firewall da VPS (`sudo ufw allow 5000/tcp`).
+    3.  Alteramos o `proxy_pass` do Nginx para apontar diretamente para o IP público da VPS (`http://76.13.227.135:5000`), bypassando as flutuações das pontes de rede internas do Docker Swarm.
+
 ---
 
 ## 3. Lições Aprendidas
@@ -42,3 +53,6 @@ Durante a instalação inicial do servidor de e-mails **Postal v3** em uma VPS U
 1.  **Isolamento de Redes no Easypanel:** Sempre verificar os IPs de entrada dos containers nos logs (`client: X.X.X.X`) para deduzir o IP correto do gateway do host no Docker (que geralmente termina em `.1` na mesma faixa do cliente).
 2.  **Escuta de Aplicações Host:** Serviços que rodam diretamente no host com `network_mode: host` e precisam interagir com containers Docker não podem escutar apenas em `127.0.0.1`. Eles precisam escutar em `0.0.0.0` (ou na interface específica da ponte Docker) para que os containers consigam fazer a conexão via IP de gateway.
 3.  **Sanitização de Caracteres no Terminal:** Evitar o uso de caracteres especiais de escape (`\`) em comandos rápidos do terminal que envolvam configurações críticas, pois eles podem ser interpretados incorretamente dependendo do shell ativo (bash vs. zsh).
+4.  **Bypass de Rede Swarm com IP Público:** Em orquestradores que utilizam Docker Swarm (como Easypanel), as conexões entre containers e serviços do host são mais estáveis e fáceis de gerenciar se feitas através do IP público (ou IP privado da placa física da VPS), sob proteção do firewall local (UFW), evitando o uso de gateways de ponte instáveis.
+5.  **Monitoramento de Health Checks:** Falhas de conexões em upstream (como 502 Bad Gateway) podem derrubar contêineres se o health check do orquestrador for agressivo e esperar retornos exclusivamente da família `200 OK`.
+

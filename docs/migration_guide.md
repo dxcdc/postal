@@ -77,7 +77,7 @@ Para garantir máxima segurança, performance e facilidade de manutenção, adot
       ┌───────────────────────────────────────────┐
       │     postal-proxy Container (Nginx)        │
       └─────────────────────┬─────────────────────┘
-                            │ (Gateway Host: 10.11.0.1)
+                            │ (IP Público VPS: 76.13.227.135)
                             ▼ [ Porta local 5000 ]
  ┌─────────────────────────────────────────────────────┐
  │               VPS HOST NETWORK                      │
@@ -102,7 +102,7 @@ Para garantir máxima segurança, performance e facilidade de manutenção, adot
 2.  **Isolamento do Banco de Dados:**
     O banco MariaDB roda dentro do container isolado, expondo a porta `3306` **apenas** para o endereço de loopback (`127.0.0.1:3306`). Nenhuma máquina externa à VPS consegue acessar a porta do banco de dados diretamente.
 3.  **Segurança no Proxy Reverso (Nginx):**
-    O container `postal-proxy` gerencia a criptografia SSL/TLS e encaminha as requisições para a porta local `5000` na VPS através do gateway da rede Docker interna (`10.11.0.1`), mantendo a porta do Postal oculta da internet pública.
+    O container `postal-proxy` gerencia a criptografia SSL/TLS e encaminha as requisições para a porta local `5000` na VPS utilizando o IP público da VPS (`76.13.227.135`), contornando limitações de conectividade de rede interna flutuante (Docker Swarm) do Easypanel.
 
 ---
 
