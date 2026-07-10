@@ -17,7 +17,7 @@ A infraestrutura está montada de forma híbrida: a Stack do Postal compartilha 
 │ ┌────────────────────────────────────────────────────┐ │
 │ │ Container App: postal-proxy (nginx:alpine)         │ │
 │ └──────────┬─────────────────────────────────────────┘ │
-│            │ (Proxy Pass para a VPS: 76.13.227.xxx:5000)│
+│            │ (Proxy Pass para a VPS: 76.x.x.x:5000)│
 │            ▼                                           │
 │ ┌────────────────────────────────────────────────────┐ │
 │ │ Postal Web (Serviço Host no IP 0.0.0.0:5000)       │ │
@@ -42,7 +42,7 @@ A infraestrutura está montada de forma híbrida: a Stack do Postal compartilha 
 
 | Tipo | Nome (Host) | Destino / Dados | Nuvem Cloudflare |
 | :--- | :--- | :--- | :--- |
-| **A** | `postal` | `76.13.227.xxx` | 🩶 Cinza (DNS Only) |
+| **A** | `postal` | `76.x.x.x` | 🩶 Cinza (DNS Only) |
 | **CNAME** | `track.postal` | `postal.cdc.org.br` | 🩶 Cinza (DNS Only) |
 | **TXT** | `educa` | `"v=spf1 a mx include:spf.postal.cdc.org.br ~all"` | 🩶 Cinza (DNS Only) |
 | **TXT** | `postal-kkp8ej._domainkey.educa` | `"v=DKIM1; t=s; h=sha256; p=MIGfMA0GCS...;` | 🩶 Cinza (DNS Only) |

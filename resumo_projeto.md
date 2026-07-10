@@ -10,7 +10,7 @@ Guarde este arquivo no Git para que, ao acessar esta pasta de qualquer nova cont
 *   **Painel Administrativo:** `https://postal.cdc.org.br` (com HTTPS/SSL ativo)
 *   **Usuário Administrador:** `gt.transformadigital@cdc.org.br`
 *   **Senha de Acesso:** `<MASCARADA_POR_SEGURANÇA>` *(a senha que redefinimos no console)*
-*   **IP da VPS:** `76.13.227.xxx`
+*   **IP da VPS:** `76.x.x.x`
 
 ---
 
@@ -21,7 +21,7 @@ Guarde este arquivo no Git para que, ao acessar esta pasta de qualquer nova cont
 *   **Escuta do Servidor:** Configurada em `0.0.0.0:5000` em `/opt/postal/config/postal.yml` para aceitar conexões da rede Docker interna e do IP público.
 *   **Proxy Reverso (Easypanel):**
     *   Um aplicativo chamado `postal-proxy` (imagem `nginx:alpine`) foi criado no Easypanel.
-    *   Ele aponta o domínio `postal.cdc.org.br` para o IP público da VPS: `http://76.13.227.xxx:5000` (onde o Postal está ouvindo, desviando de problemas de rede flutuante/Swarm).
+    *   Ele aponta o domínio `postal.cdc.org.br` para o IP público da VPS: `http://76.x.x.x:5000` (onde o Postal está ouvindo, desviando de problemas de rede flutuante/Swarm).
     *   A configuração do proxy está no volume do container mapeado na VPS: `/etc/easypanel/projects/cdc-ezpoint/postal-proxy/volumes/config/default.conf`.
 
 ---

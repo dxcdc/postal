@@ -10,7 +10,7 @@ Toda a administração e manutenção técnica da VPS de produção deve ser fei
 ### Configuração Recomendada (`~/.ssh/config` na máquina local):
 ```text
 Host cdc-email
-    HostName 76.13.227.xxx
+    HostName 76.x.x.x
     User admin_cdc
     Port 22
     IdentityFile ~/.ssh/id_ed25519
@@ -99,8 +99,8 @@ rm -f ~/.my.cnf
 tar -czf /tmp/config_postal.tar.gz -C /opt/postal config/
 
 # 2. Transferir os arquivos de forma segura para a nova VPS
-rsync -avzP -e "ssh -i ~/.ssh/id_ed25519" /tmp/db_postal_backup.sql admin_cdc@76.13.227.xxx:/tmp/
-rsync -avzP -e "ssh -i ~/.ssh/id_ed25519" /tmp/config_postal.tar.gz admin_cdc@76.13.227.xxx:/tmp/
+rsync -avzP -e "ssh -i ~/.ssh/id_ed25519" /tmp/db_postal_backup.sql admin_cdc@76.x.x.x:/tmp/
+rsync -avzP -e "ssh -i ~/.ssh/id_ed25519" /tmp/config_postal.tar.gz admin_cdc@76.x.x.x:/tmp/
 ```
 
 ### Fase 4: Restauração e Validação na Nova VPS
