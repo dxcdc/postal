@@ -1,101 +1,89 @@
-# CDC - Servidor de Disparo de E-mails (Postal)
+# CDC — Servidor de Disparo de E-mails (Postal)
 
-Este repositório contém a documentação, scripts e templates de infraestrutura para o servidor de envio de e-mails transacionais (alternativa open-source ao SendGrid/Mailgun) da **CDC (Centro de Desenvolvimento e Cidadania)**, atendendo ao Moodle e a outros projetos futuros.
+![Stack](https://img.shields.io/badge/Stack-Postal%20v3-blue)
+![Docker](https://img.shields.io/badge/Runtime-Docker-blue)
+![License](https://img.shields.io/badge/Environment-Ubuntu%20VPS-orange)
+![Version](https://img.shields.io/badge/Version-3.3.7-green)
 
-O servidor de e-mails foi implantado com sucesso utilizando o **Postal v3** rodando em Docker e integrado com o proxy reverso **Traefik** do **Easypanel** no ambiente Ubuntu VPS.
-
----
-
-## Estrutura do Repositório
-
-*   [docs/migration_guide.md](file:///home/vier/Documentos/Code/CDC/Email/docs/migration_guide.md): Guia de Planejamento de Migração, arquitetura de rede, comandos de mapeamento e plano de contingência.
-*   [docs/ajuda_infra.md](file:///home/vier/Documentos/Code/CDC/Email/docs/ajuda_infra.md): Desenho da infraestrutura física de rede e comandos básicos do Postal.
-*   [docs/postmortem.md](file:///home/vier/Documentos/Code/CDC/Email/docs/postmortem.md): Histórico de incidentes depurados durante o setup e resoluções aplicadas.
-*   [docs/troubleshooting.md](file:///home/vier/Documentos/Code/CDC/Email/docs/troubleshooting.md): Manual de correção de falhas comuns de SMTP, timeout e firewall.
-*   `install_postal.sh`: Script utilizado para instalar as dependências base e baixar o instalador oficial do Postal na VPS.
-*   `default.conf`: Arquivo de configuração do Nginx Proxy que faz a ponte entre o Easypanel (Traefik) e a porta local `5000` do Postal na VPS.
-*   `docker-compose.yml`: Template DevOps definitivo para subir o banco MariaDB e a aplicação Postal de forma unificada no Git (ideal para automações futuras).
+Este repositório centraliza os scripts de implantação, configurações de Nginx e toda a documentação de infraestrutura do servidor de disparo de e-mails transacionais (Postal v3) da **CDC (Centro de Desenvolvimento e Cidadania)**, integrado ao Moodle e a outros projetos futuros.
 
 ---
 
-## Detalhes da Implantação Atual
+## 1. Desenho da Arquitetura
 
-### 1. Aplicação Postal (Host Docker Stack)
-O Postal v3 roda em `network_mode: host` diretamente na rede da VPS:
-*   **Diretório de Configuração:** `/opt/postal/config/`
-*   **Diretório do Instalador:** `/opt/postal/install/`
-*   **Comandos de Gerenciamento:**
-    *   Iniciar: `sudo postal start` (ou `sudo docker compose -p postal up -d` na pasta do instalador)
-    *   Parar: `sudo postal stop` (ou `sudo docker compose -p postal down` na pasta do instalador)
-    *   Verificar Status: `sudo postal status`
-*   **Ajuste de Escuta (postal.yml):**
-    Para permitir que o proxy interno do Docker fale com a porta `5000` do host, adicionamos a escuta pública no arquivo `/opt/postal/config/postal.yml`:
-    ```yaml
-    web_server:
-      default_bind_address: 0.0.0.0
+O diagrama abaixo descreve a comunicação entre a internet, os servidores DNS da Cloudflare, o proxy Nginx, a stack do Postal e os alertas direcionados ao Mattermost:
+
+```mermaid
+graph TD
+    User([Navegador do Usuário]) -->|HTTPS: 443| Cloudflare[Cloudflare DNS / Proxy]
+    Cloudflare -->|HTTP: 80| Proxy[Easypanel: Nginx Proxy]
+    Proxy -->|Proxy Pass: Porta 5000| Web[Postal Web Server]
+    Moodle[Servidor Moodle] -->|SMTP: 25| SMTP[Postal SMTP Service]
+    SMTP -->|Disparo Outbound IPv4| Gmail[Gmail / Servidores Destino]
+    Web -->|Alertas Operacionais| Mattermost[Mattermost Webhook]
+```
+
+---
+
+## 2. Estrutura do Repositório
+
+```text
+/ (Raiz do repositório)
+├── README.md                           # Este documento (Guia rápido operacional)
+├── default.conf                        # Template de proxy reverso do Nginx
+├── docker-compose.yml                  # Template unificado de serviços MariaDB + Postal
+├── install_postal.sh                   # Script instalador de dependências básicas na VPS
+├── resumo_projeto.md                   # Resumo do projeto técnico de e-mail
+└── docs/
+    ├── diretrizes_documentacao.md      # Governança e regras de atualização
+    ├── estrategia_execucao.md          # Branches, ambientes e rollbacks
+    ├── migration_guide.md              # Acesso SSH seguro e exportação de dados
+    ├── ajuda_infra.md                  # Desenho de portas, DNS e configurações
+    ├── postmortem.md                   # Análise cronológica blameless de incidentes
+    ├── troubleshooting.md              # Resolução de problemas comuns e emergências
+    ├── politica_backup.md              # Rotina de backup criptografado 3-2-1 e restore
+    ├── dns_backup.md                   # Backup histórico de registros do Registro.br
+    └── prompt_ia.md                    # Contexto permanente de suporte para IAs
+```
+
+---
+
+## 3. Requisitos Mínimos do Sistema
+*   **CPU:** 2 vCPUs (Mínimo recomendado para processamento de filas e assinaturas DKIM).
+*   **Memória RAM:** 4 GB (Recomendado para rodar a stack Postal + MariaDB de forma estável).
+*   **Disco:** 40 GB SSD (Com monitoramento ativo de armazenamento de logs e banco).
+
+---
+
+## 4. Inicialização Rápida e Variáveis
+1.  **Configurar o ambiente:** Copie o arquivo `.env.example` para `.env` e ajuste todas as variáveis (como senhas e webhooks):
+    ```bash
+    cp docs/ajuda_infra.md#L94-L106 .env
     ```
-
-### 2. Banco de Dados MariaDB
-O banco de dados roda em um container standalone:
-*   **Nome do container:** `postal-mariadb`
-*   **Porta exposta:** `127.0.0.1:3306:3306` (acesso restrito apenas localmente)
-*   **Database:** `postal`
-
-### 3. Integração com o Easypanel (Nginx Proxy)
-Como o Easypanel controla as portas públicas `80` e `443` da VPS, configuramos um aplicativo do tipo "App" com o nome **`postal-proxy`** dentro do projeto **`cdc-ezpoint`** no painel:
-*   **Imagem Docker:** `nginx:alpine`
-*   **Porta do Proxy:** `80`
-*   **Domínio associado:** `postal.cdc.org.br` (com SSL Let's Encrypt automático via Easypanel)
-*   **Armazenamento (Volume):** 
-    Criamos um volume chamado `config` apontando para `/etc/nginx/conf.d` dentro do container.
-*   **Configuração do Proxy (default.conf):**
-    No terminal da VPS, escrevemos o arquivo `/etc/easypanel/projects/cdc-ezpoint/postal-proxy/volumes/config/default.conf` que aponta para o IP público da VPS na porta `5000` (evitando falhas de rede flutuante/Swarm):
-    ```nginx
-    server {
-        listen 80;
-        server_name postal.cdc.org.br;
-        location / {
-            proxy_pass http://76.13.227.135:5000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto https;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-        }
-    }
-    ```
+2.  **Segurança de Segredos:** Nunca comite arquivos `.env` ou arquivos de senhas reais. Eles estão protegidos por padrão no `.gitignore`.
 
 ---
 
-## Configurações Pendentes (Para Segunda-Feira)
-
-Quando tiver acesso ao gerenciador de DNS do domínio `cdc.org.br`, realize as configurações abaixo:
-
-### 1. Criar Subdomínio Definitivo (Opcional)
-Se preferir mudar do domínio temporário `core.cdc.org.br` para algo como `postal.cdc.org.br`:
-1. No DNS, aponte um registro **A** com o nome `postal` para o IP da VPS.
-2. No Easypanel, mude o domínio do app `postal-proxy` para `postal.cdc.org.br`.
-3. No arquivo `default.conf`, altere o `server_name` para `postal.cdc.org.br`.
-4. No arquivo `/opt/postal/config/postal.yml`, altere as linhas `web_hostname` e `smtp_hostname` para `postal.cdc.org.br` e reinicie o Postal (`sudo postal restart`).
-
-### 2. Autenticação de E-mail (Entregabilidade)
-Dentro do painel do Postal, após criar a organização e o servidor virtual para o Moodle:
-1. Acesse **Domains** -> **Add Domain** -> Adicione `cdc.org.br`.
-2. Configure na sua zona de DNS as chaves exibidas pelo painel:
-   *   **SPF (TXT):** `v=spf1 ip4:IP_DA_SUA_VPS include:spf.core.cdc.org.br ~all`
-   *   **DKIM (TXT):** Crie um registro com nome `postal._domainkey` contendo a chave gerada.
-   *   **DMARC (TXT):** `v=DMARC1; p=none; rua=mailto:dmarc@cdc.org.br`
-   *   **DNS Reverso (PTR):** Configure o DNS reverso do IP da sua VPS no painel de sua hospedagem para apontar para `core.cdc.org.br` (ou `postal.cdc.org.br`).
+## 5. Cheat Sheet Operacional (Comandos Frequentes)
+*   **Iniciar pilha de serviços:** `sudo postal start`
+*   **Parar pilha de serviços:** `sudo postal stop`
+*   **Exibir status de processos:** `sudo postal status`
+*   **Visualizar logs ativos:** `sudo postal logs`
 
 ---
 
-## Integração com o Moodle
+## 6. Documentação Detalhada
+Para guias específicos de operação, consulte os manuais internos:
+*   [Diretrizes de Documentação](file:///home/vier/Documentos/Code/CDC/Email/docs/diretrizes_documentacao.md): Regras de padronização técnica.
+*   [Estratégia de Execução](file:///home/vier/Documentos/Code/CDC/Email/docs/estrategia_execucao.md): Políticas de branching e planos de rollback.
+*   [Guia de Migração](file:///home/vier/Documentos/Code/CDC/Email/docs/migration_guide.md): Mapeamentos SSH e migração de dados.
+*   [Ajuda de Infraestrutura](file:///home/vier/Documentos/Code/CDC/Email/docs/ajuda_infra.md): Topologia de rede, portas e DNS.
+*   [Postmortem Técnico](file:///home/vier/Documentos/Code/CDC/Email/docs/postmortem.md): Análise dos incidentes ocorridos e lições aprendidas.
+*   [Troubleshooting](file:///home/vier/Documentos/Code/CDC/Email/docs/troubleshooting.md): Resoluções de erros e checklist de quedas.
+*   [Política de Backup](file:///home/vier/Documentos/Code/CDC/Email/docs/politica_backup.md): Scripts de backup GPG e rotinas de restore.
+*   [Backup do DNS Antigo](file:///home/vier/Documentos/Code/CDC/Email/docs/dns_backup.md): Tabela de consulta dos IPs antigos do Registro.br.
+*   [Prompt para IA](file:///home/vier/Documentos/Code/CDC/Email/docs/prompt_ia.md): Arquivo de contexto rápido para assistentes de IA.
 
-Configurações no Moodle (`Administração do site` -> `Servidor` -> `Configuração de saída de e-mail`):
-*   **SMTP hosts:** `IP_DA_SUA_VPS:2525` (ou `core.cdc.org.br:2525`)
-*   **Segurança SMTP:** `Nenhum` (se for rede local interna na VPS) ou `TLS` (se passar por conexão externa com certificado)
-*   **Autenticação SMTP:** `Login`
-*   **Usuário e Senha SMTP:** Gerados na aba **Credentials** do painel do Postal.
-*   **Endereço de e-mail de suporte:** Deve ser um e-mail do domínio verificado (ex: `nao-responda@cdc.org.br`).
+---
+> [!IMPORTANT]
+> **Manutenção e Governança:** Qualquer alteração na infraestrutura do Postal deve ser devidamente documentada nestes arquivos antes de realizar o deploy, garantindo a governança operacional técnica da CDC.
