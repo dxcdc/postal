@@ -31,7 +31,7 @@ Se o painel web em `https://postal.cdc.org.br` parar de responder e exibir a tel
 3.  **Verifique se a rota do proxy aponta para o IP público da VPS:**
     Como o Easypanel roda com Docker Swarm, as redes internas (ponte/gateway) são instáveis. Garanta que o arquivo `/etc/easypanel/projects/cdc-ezpoint/postal-proxy/volumes/config/default.conf` aponte para o IP público da sua VPS:
     ```nginx
-    proxy_pass http://76.13.227.135:5000;
+    proxy_pass http://76.13.227.xxx:5000;
     ```
     Em seguida, rode o Deploy no painel do Easypanel.
 

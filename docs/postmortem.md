@@ -44,7 +44,7 @@ Durante a instalação inicial do servidor de e-mails **Postal v3** em uma VPS U
 *   **Solução:**
     1.  Corrigimos a sintaxe do Nginx removendo a barra invertida (`\;` para `;`).
     2.  Liberamos a porta `5000` no firewall da VPS (`sudo ufw allow 5000/tcp`).
-    3.  Alteramos o `proxy_pass` do Nginx para apontar diretamente para o IP público da VPS (`http://76.13.227.135:5000`), bypassando as flutuações das pontes de rede internas do Docker Swarm.
+    3.  Alteramos o `proxy_pass` do Nginx para apontar diretamente para o IP público da VPS (`http://76.13.227.xxx:5000`), bypassando as flutuações das pontes de rede internas do Docker Swarm.
 
 ---
 

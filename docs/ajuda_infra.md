@@ -23,7 +23,7 @@ Abaixo está o fluxo de tráfego que viabiliza o acesso seguro (HTTPS) ao painel
 │ ┌────────────────────────────────────────────────────┐ │
 │ │ Container App: postal-proxy (nginx:alpine)         │ │
 │ └──────────┬─────────────────────────────────────────┘ │
-│            │ (Proxy Pass para a VPS: 76.13.227.135:5000)│
+│            │ (Proxy Pass para a VPS: 76.13.227.xxx:5000)│
 │            ▼                                           │
 │ ┌────────────────────────────────────────────────────┐ │
 │ │ Postal Web (Serviço Host no IP 0.0.0.0:5000)       │ │
