@@ -21,6 +21,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e
           echo "Iniciando verificação e criação automatizada de Issues no GitHub..."
 
           # Garantir que rótulos (labels) customizados existam no repositório
@@ -42,17 +43,24 @@ jobs:
           create_issue_if_not_exists() {
             local title="$1"
             local body="$2"
-            local labels="$3"
+            local labels_str="$3"
             local search_query="$4"
 
-            # Busca se já existe alguma issue com essa busca
+            # Converte lista separada por vírgula em múltiplos argumentos --label "nome"
+            IFS=',' read -ra LABELS_ARR <<< "$labels_str"
+            local label_flags=()
+            for lbl in "${LABELS_ARR[@]}"; do
+              label_flags+=("--label" "$lbl")
+            done
+
+            # Verifica se já existe alguma issue com essa busca
             existing_count=$(gh issue list --search "$search_query" --state all --json number --jq 'length' 2>/dev/null || echo "0")
 
             if [ "$existing_count" -gt 0 ]; then
               echo "ℹ️ Issue contendo '$search_query' já existe no repositório. Ppulando..."
             else
               echo "🚀 Criando Issue: $title"
-              gh issue create --title "$title" --body "$body" --label "$labels" || echo "⚠️ Não foi possível criar a issue '$title'. Verifique as permissões de token."
+              gh issue create --title "$title" --body "$body" "${label_flags[@]}" || echo "⚠️ Alerta ao criar '$title'"
             fi
           }
 
