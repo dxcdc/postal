@@ -1,0 +1,150 @@
+name: Automatizar Criacao de Issues
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Criar Issues no GitHub via CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Iniciando verificação e criação automatizada de Issues no GitHub..."
+
+          create_issue_if_not_exists() {
+            local title="$1"
+            local body="$2"
+            local labels="$3"
+            local search_query="$4"
+
+            # Verifica se já existe uma issue aberta ou fechada correspondente à busca
+            existing_count=$(gh issue list --search "$search_query" --json number --jq 'length')
+
+            if [ "$existing_count" -gt 0 ]; then
+              echo "ℹ️ Issue com o termo '$search_query' já existe no repositório. Ppulando criação..."
+            else
+              echo "🚀 Criando Issue: $title"
+              gh issue create --title "$title" --body "$body" --label "$labels"
+            fi
+          }
+
+          # --- Issue 1 ---
+          ISSUE_1_BODY=$(cat << 'EOF'
+### Descrição
+Ajustar as rotas do proxy reverso Nginx e a terminação SSL para os domínios de rastreamento do Postal (`track.educa.cdc.org.br` e `track.postal.cdc.org.br`), garantindo que o rastreamento de cliques e aberturas ocorra sem retornar erro HTTP 403.
+
+### Referências Técnicas
+- Manual de Infraestrutura: [docs/ajuda_infra.md](docs/ajuda_infra.md)
+- Manual de Resolução de Problemas: [docs/troubleshooting.md](docs/troubleshooting.md)
+- Backlog de Issues: [docs/issues_backlog.md](docs/issues_backlog.md)
+
+### Critérios de Aceite
+- [ ] Domínios `track.educa.cdc.org.br` e `track.postal.cdc.org.br` cadastrados no aplicativo `postal-proxy` do Easypanel.
+- [ ] Cabeçalho `server_name` no `default.conf` do Nginx atualizado com todos os subdomínios de rastreamento.
+- [ ] Configuração de **SSL ENABLED** no painel administrativo do Postal ajustada adequadamente para a arquitetura de proxy.
+- [ ] Teste de redirecionamento de link em e-mail HTML efetuado com sucesso sem erros de segurança no navegador.
+EOF
+          )
+          create_issue_if_not_exists "[CONFIG] Ajuste de Rota e SSL no Proxy para Domínio de Rastreamento" "$ISSUE_1_BODY" "bug,infrastructure" "Ajuste de Rota e SSL no Proxy"
+
+          # --- Issue 2 ---
+          ISSUE_2_BODY=$(cat << 'EOF'
+### Descrição
+Garantir a correta autenticação DKIM para o subdomínio de envio do Moodle (`educa.cdc.org.br`) configurando a entrada TXT apropriada na Cloudflare para evitar rejeições do Gmail (`550-5.7.26`).
+
+### Referências Técnicas
+- Desenho de Infraestrutura e DNS: [docs/ajuda_infra.md](docs/ajuda_infra.md)
+- Guia de Migração e Acesso Seguro: [docs/migration_guide.md](docs/migration_guide.md)
+- Backlog de Issues: [docs/issues_backlog.md](docs/issues_backlog.md)
+
+### Critérios de Aceite
+- [ ] Entrada TXT criada na Cloudflare apontando para `postal-kkp8eJ._domainkey.educa`.
+- [ ] Validação de consulta DNS (`dig txt postal-kkp8ej._domainkey.educa.cdc.org.br`) retornando a chave pública válida.
+- [ ] Selo de validação DKIM marcado como verificado (verde) no painel administrativo do Postal.
+EOF
+          )
+          create_issue_if_not_exists "[CONFIG] Sincronização de Chave DKIM no Subdomínio educa.cdc.org.br" "$ISSUE_2_BODY" "documentation,security" "Sincronização de Chave DKIM"
+
+          # --- Issue 3 ---
+          ISSUE_3_BODY=$(cat << 'EOF'
+### Descrição
+Impedir que o Postal tente estabelecer conexões de saída SMTP via IPv6 sem registro de DNS Reverso (PTR) válido na hospedagem, evitando falhas de entrega no Gmail e em outros provedores com diretrizes estritas.
+
+### Referências Técnicas
+- Manual de Resolução de Problemas: [docs/troubleshooting.md](docs/troubleshooting.md)
+- Relatório de Incidentes: [docs/postmortem.md](docs/postmortem.md)
+- Backlog de Issues: [docs/issues_backlog.md](docs/issues_backlog.md)
+
+### Critérios de Aceite
+- [ ] Roteamento IPv6 desativado no Host via `sysctl` (`net.ipv6.conf.all.disable_ipv6=1`).
+- [ ] Serviço do Postal reiniciado para aplicar as novas configurações de rede.
+- [ ] Disparo de teste via SMTP validado com sucesso no Gmail via IPv4.
+EOF
+          )
+          create_issue_if_not_exists "[ARCH] Bypass de Conexões IPv6 para Evitar Rejeição por Falta de PTR no Gmail" "$ISSUE_3_BODY" "infrastructure,enhancement" "Bypass de Conexões IPv6"
+
+          # --- Issue 4 ---
+          ISSUE_4_BODY=$(cat << 'EOF'
+### Descrição
+Corrigir a passagem de cabeçalhos de protocolo HTTP no Nginx Proxy para sanar falhas de validação CSRF do Rails (erro HTTP 422 ao autenticar ou atualizar credenciais no painel).
+
+### Referências Técnicas
+- Análise de Incidentes: [docs/postmortem.md](docs/postmortem.md)
+- Manual de Infraestrutura: [docs/ajuda_infra.md](docs/ajuda_infra.md)
+- Backlog de Issues: [docs/issues_backlog.md](docs/issues_backlog.md)
+
+### Critérios de Aceite
+- [ ] Cabeçalho `proxy_set_header X-Forwarded-Proto https;` configurado de forma estática no `default.conf`.
+- [ ] Deploy e reload do Nginx no Easypanel executados.
+- [ ] Login e submissão de formulários no painel do Postal validados sem erros HTTP 422.
+EOF
+          )
+          create_issue_if_not_exists "[BUG] Correção de Erros de Validação CSRF (HTTP 422) no Rails via Nginx" "$ISSUE_4_BODY" "bug,security" "Correção de Erros de Validação CSRF"
+
+          # --- Issue 5 ---
+          ISSUE_5_BODY=$(cat << 'EOF'
+### Descrição
+Manter a governança da documentação do projeto atualizada, auditada e em conformidade com as diretrizes de segurança, anonimização de IPs e histórico cronológico.
+
+### Referências Técnicas
+- Diretrizes de Documentação: [docs/diretrizes_documentacao.md](docs/diretrizes_documentacao.md)
+- Estratégia de Execução: [docs/estrategia_execucao.md](docs/estrategia_execucao.md)
+- Contexto de Inteligência Artificial: [docs/prompt_ia.md](docs/prompt_ia.md)
+
+### Critérios de Aceite
+- [ ] Todos os arquivos da pasta `docs/` possuem dados sensíveis e IPs mascarados (`76.x.x.x`).
+- [ ] Tabela de revisões periódicas atualizada no `diretrizes_documentacao.md`.
+- [ ] Links markdown relativos validados no `README.md`.
+EOF
+          )
+          create_issue_if_not_exists "[DOCS] Governança e Manutenção Contínua da Documentação Técnica (docs/)" "$ISSUE_5_BODY" "documentation" "Governança e Manutenção Contínua"
+
+          # --- Issue 6 ---
+          ISSUE_6_BODY=$(cat << 'EOF'
+### Descrição
+Garantir a execução da rotina automatizada de backup 3-2-1 com criptografia simétrica GPG, checksums SHA-256 e envio de alertas no Mattermost, realizando testes periódicos de restauração.
+
+### Referências Técnicas
+- Política de Backup e Restauração: [docs/politica_backup.md](docs/politica_backup.md)
+- Estratégia de Execução: [docs/estrategia_execucao.md](docs/estrategia_execucao.md)
+
+### Critérios de Aceite
+- [ ] Script `backup_postal_prod.sh` configurado na Cron da VPS.
+- [ ] Chave/passphrase GPG configurada com permissões restritas `600`.
+- [ ] Webhook do Mattermost testado e validado enviando alertas de sucesso/erro.
+- [ ] Teste de restauração em ambiente de homologação (Staging) realizado a cada 3 meses.
+EOF
+          )
+          create_issue_if_not_exists "[FEAT] Implementação e Teste Periódico da Política de Backup Criptografado 3-2-1" "$ISSUE_6_BODY" "enhancement,security" "Implementação e Teste Periódico"
