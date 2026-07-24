@@ -22,24 +22,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Buscando Issues existentes no repositório $REPO..."
+          echo "Iniciando verificação de Issues no repositório $REPO..."
 
-          # Obter lista de títulos de todas as issues (abertas e fechadas)
-          EXISTING_ISSUES=$(curl -s -H "Accept: application/vnd.github+json" \
+          # Obter resposta da API ao consultar as issues
+          FETCH_RESPONSE=$(curl -s -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPO/issues?state=all&per_page=100" | jq -r '.[].title // empty')
+            "https://api.github.com/repos/$REPO/issues?state=all&per_page=100")
+
+          # Exibir resposta de diagnóstico se houver erro da API
+          if echo "$FETCH_RESPONSE" | jq -e 'if type=="object" then .message else false end' >/dev/null 2>&1; then
+            API_MSG=$(echo "$FETCH_RESPONSE" | jq -r '.message')
+            echo "⚠️ Aviso da API do GitHub ao consultar issues: $API_MSG"
+          fi
+
+          # Extrair títulos com segurança sem quebrar se for um objeto de erro
+          EXISTING_ISSUES=$(echo "$FETCH_RESPONSE" | jq -r 'if type=="array" then .[].title else empty end' 2>/dev/null || echo "")
 
           create_issue_if_not_exists() {
             local title="$1"
             local body="$2"
             local labels_json="$3"
 
-            if echo "$EXISTING_ISSUES" | grep -Fq "$title"; then
+            if [ -n "$EXISTING_ISSUES" ] && echo "$EXISTING_ISSUES" | grep -Fq "$title"; then
               echo "ℹ️ Issue '$title' já existe no repositório. Pulando..."
             else
-              echo "🚀 Criando Issue: $title"
+              echo "🚀 Tentando criar Issue: $title"
 
-              # Montar payload JSON seguro usando jq
               PAYLOAD=$(jq -n \
                 --arg title "$title" \
                 --arg body "$body" \
