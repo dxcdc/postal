@@ -17,50 +17,49 @@ jobs:
       - name: Checkout do Repositório
         uses: actions/checkout@v4
 
-      - name: Criar Issues no GitHub via CLI
+      - name: Criar Issues via GitHub REST API
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          set -e
-          echo "Iniciando verificação e criação automatizada de Issues no GitHub..."
+          echo "Buscando Issues existentes no repositório $REPO..."
 
-          # Garantir que rótulos (labels) customizados existam no repositório
-          create_label_if_missing() {
-            local label_name="$1"
-            local color="$2"
-            gh label create "$label_name" --color "$color" --force 2>/dev/null || true
-          }
-
-          echo "Garantindo existência dos rótulos (labels)..."
-          create_label_if_missing "infrastructure" "0052CC"
-          create_label_if_missing "security" "D93F0C"
-          create_label_if_missing "dns" "1D76DB"
-          create_label_if_missing "backup" "0E8A16"
-          create_label_if_missing "bug" "d73a4a"
-          create_label_if_missing "documentation" "0075ca"
-          create_label_if_missing "enhancement" "a2eeef"
+          # Obter lista de títulos de todas as issues (abertas e fechadas)
+          EXISTING_ISSUES=$(curl -s -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPO/issues?state=all&per_page=100" | jq -r '.[].title // empty')
 
           create_issue_if_not_exists() {
             local title="$1"
             local body="$2"
-            local labels_str="$3"
-            local search_query="$4"
+            local labels_json="$3"
 
-            # Converte lista separada por vírgula em múltiplos argumentos --label "nome"
-            IFS=',' read -ra LABELS_ARR <<< "$labels_str"
-            local label_flags=()
-            for lbl in "${LABELS_ARR[@]}"; do
-              label_flags+=("--label" "$lbl")
-            done
-
-            # Verifica se já existe alguma issue com essa busca
-            existing_count=$(gh issue list --search "$search_query" --state all --json number --jq 'length' 2>/dev/null || echo "0")
-
-            if [ "$existing_count" -gt 0 ]; then
-              echo "ℹ️ Issue contendo '$search_query' já existe no repositório. Ppulando..."
+            if echo "$EXISTING_ISSUES" | grep -Fq "$title"; then
+              echo "ℹ️ Issue '$title' já existe no repositório. Pulando..."
             else
               echo "🚀 Criando Issue: $title"
-              gh issue create --title "$title" --body "$body" "${label_flags[@]}" || echo "⚠️ Alerta ao criar '$title'"
+
+              # Montar payload JSON seguro usando jq
+              PAYLOAD=$(jq -n \
+                --arg title "$title" \
+                --arg body "$body" \
+                --argjson labels "$labels_json" \
+                '{title: $title, body: $body, labels: $labels}')
+
+              RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                "https://api.github.com/repos/$REPO/issues" \
+                -d "$PAYLOAD")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+              HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" -eq 201 ]; then
+                echo "✅ Issue '$title' criada com sucesso!"
+              else
+                echo "❌ Erro ao criar '$title' (HTTP $HTTP_CODE): $HTTP_BODY"
+              fi
             fi
           }
 
@@ -81,7 +80,7 @@ Ajustar as rotas do proxy reverso Nginx e a terminação SSL para os domínios d
 - [ ] Teste de redirecionamento de link em e-mail HTML efetuado com sucesso sem erros de segurança no navegador.
 EOF
           )
-          create_issue_if_not_exists "[CONFIG] Ajuste de Rota e SSL no Proxy para Domínio de Rastreamento" "$ISSUE_1_BODY" "bug,infrastructure" "Ajuste de Rota e SSL no Proxy"
+          create_issue_if_not_exists "[CONFIG] Ajuste de Rota e SSL no Proxy para Domínio de Rastreamento" "$ISSUE_1_BODY" '["bug", "infrastructure"]'
 
           # --- Issue 2 ---
           ISSUE_2_BODY=$(cat << 'EOF'
@@ -99,7 +98,7 @@ Garantir a correta autenticação DKIM para o subdomínio de envio do Moodle (`e
 - [ ] Selo de validação DKIM marcado como verificado (verde) no painel administrativo do Postal.
 EOF
           )
-          create_issue_if_not_exists "[CONFIG] Sincronização de Chave DKIM no Subdomínio educa.cdc.org.br" "$ISSUE_2_BODY" "documentation,security,dns" "Sincronização de Chave DKIM"
+          create_issue_if_not_exists "[CONFIG] Sincronização de Chave DKIM no Subdomínio educa.cdc.org.br" "$ISSUE_2_BODY" '["documentation", "security", "dns"]'
 
           # --- Issue 3 ---
           ISSUE_3_BODY=$(cat << 'EOF'
@@ -117,7 +116,7 @@ Impedir que o Postal tente estabelecer conexões de saída SMTP via IPv6 sem reg
 - [ ] Disparo de teste via SMTP validado com sucesso no Gmail via IPv4.
 EOF
           )
-          create_issue_if_not_exists "[ARCH] Bypass de Conexões IPv6 para Evitar Rejeição por Falta de PTR no Gmail" "$ISSUE_3_BODY" "infrastructure,enhancement" "Bypass de Conexões IPv6"
+          create_issue_if_not_exists "[ARCH] Bypass de Conexões IPv6 para Evitar Rejeição por Falta de PTR no Gmail" "$ISSUE_3_BODY" '["infrastructure", "enhancement"]'
 
           # --- Issue 4 ---
           ISSUE_4_BODY=$(cat << 'EOF'
@@ -135,7 +134,7 @@ Corrigir a passagem de cabeçalhos de protocolo HTTP no Nginx Proxy para sanar f
 - [ ] Login e submissão de formulários no painel do Postal validados sem erros HTTP 422.
 EOF
           )
-          create_issue_if_not_exists "[BUG] Correção de Erros de Validação CSRF (HTTP 422) no Rails via Nginx" "$ISSUE_4_BODY" "bug,security" "Correção de Erros de Validação CSRF"
+          create_issue_if_not_exists "[BUG] Correção de Erros de Validação CSRF (HTTP 422) no Rails via Nginx" "$ISSUE_4_BODY" '["bug", "security"]'
 
           # --- Issue 5 ---
           ISSUE_5_BODY=$(cat << 'EOF'
@@ -153,7 +152,7 @@ Manter a governança da documentação do projeto atualizada, auditada e em conf
 - [ ] Links markdown relativos validados no `README.md`.
 EOF
           )
-          create_issue_if_not_exists "[DOCS] Governança e Manutenção Contínua da Documentação Técnica (docs/)" "$ISSUE_5_BODY" "documentation" "Governança e Manutenção Contínua"
+          create_issue_if_not_exists "[DOCS] Governança e Manutenção Contínua da Documentação Técnica (docs/)" "$ISSUE_5_BODY" '["documentation"]'
 
           # --- Issue 6 ---
           ISSUE_6_BODY=$(cat << 'EOF'
@@ -171,4 +170,4 @@ Garantir a execução da rotina automatizada de backup 3-2-1 com criptografia si
 - [ ] Teste de restauração em ambiente de homologação (Staging) realizado a cada 3 meses.
 EOF
           )
-          create_issue_if_not_exists "[FEAT] Implementação e Teste Periódico da Política de Backup Criptografado 3-2-1" "$ISSUE_6_BODY" "backup,security" "Implementação e Teste Periódico"
+          create_issue_if_not_exists "[FEAT] Implementação e Teste Periódico da Política de Backup Criptografado 3-2-1" "$ISSUE_6_BODY" '["backup", "security"]'
