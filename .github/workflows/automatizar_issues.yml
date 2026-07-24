@@ -23,20 +23,36 @@ jobs:
         run: |
           echo "Iniciando verificação e criação automatizada de Issues no GitHub..."
 
+          # Garantir que rótulos (labels) customizados existam no repositório
+          create_label_if_missing() {
+            local label_name="$1"
+            local color="$2"
+            gh label create "$label_name" --color "$color" --force 2>/dev/null || true
+          }
+
+          echo "Garantindo existência dos rótulos (labels)..."
+          create_label_if_missing "infrastructure" "0052CC"
+          create_label_if_missing "security" "D93F0C"
+          create_label_if_missing "dns" "1D76DB"
+          create_label_if_missing "backup" "0E8A16"
+          create_label_if_missing "bug" "d73a4a"
+          create_label_if_missing "documentation" "0075ca"
+          create_label_if_missing "enhancement" "a2eeef"
+
           create_issue_if_not_exists() {
             local title="$1"
             local body="$2"
             local labels="$3"
             local search_query="$4"
 
-            # Verifica se já existe uma issue aberta ou fechada correspondente à busca
-            existing_count=$(gh issue list --search "$search_query" --json number --jq 'length')
+            # Busca se já existe alguma issue com essa busca
+            existing_count=$(gh issue list --search "$search_query" --state all --json number --jq 'length' 2>/dev/null || echo "0")
 
             if [ "$existing_count" -gt 0 ]; then
-              echo "ℹ️ Issue com o termo '$search_query' já existe no repositório. Ppulando criação..."
+              echo "ℹ️ Issue contendo '$search_query' já existe no repositório. Ppulando..."
             else
               echo "🚀 Criando Issue: $title"
-              gh issue create --title "$title" --body "$body" --label "$labels"
+              gh issue create --title "$title" --body "$body" --label "$labels" || echo "⚠️ Não foi possível criar a issue '$title'. Verifique as permissões de token."
             fi
           }
 
@@ -75,7 +91,7 @@ Garantir a correta autenticação DKIM para o subdomínio de envio do Moodle (`e
 - [ ] Selo de validação DKIM marcado como verificado (verde) no painel administrativo do Postal.
 EOF
           )
-          create_issue_if_not_exists "[CONFIG] Sincronização de Chave DKIM no Subdomínio educa.cdc.org.br" "$ISSUE_2_BODY" "documentation,security" "Sincronização de Chave DKIM"
+          create_issue_if_not_exists "[CONFIG] Sincronização de Chave DKIM no Subdomínio educa.cdc.org.br" "$ISSUE_2_BODY" "documentation,security,dns" "Sincronização de Chave DKIM"
 
           # --- Issue 3 ---
           ISSUE_3_BODY=$(cat << 'EOF'
@@ -147,4 +163,4 @@ Garantir a execução da rotina automatizada de backup 3-2-1 com criptografia si
 - [ ] Teste de restauração em ambiente de homologação (Staging) realizado a cada 3 meses.
 EOF
           )
-          create_issue_if_not_exists "[FEAT] Implementação e Teste Periódico da Política de Backup Criptografado 3-2-1" "$ISSUE_6_BODY" "enhancement,security" "Implementação e Teste Periódico"
+          create_issue_if_not_exists "[FEAT] Implementação e Teste Periódico da Política de Backup Criptografado 3-2-1" "$ISSUE_6_BODY" "backup,security" "Implementação e Teste Periódico"
